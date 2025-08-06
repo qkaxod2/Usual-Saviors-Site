@@ -225,9 +225,14 @@ function updateCharacterMenu() {
         
         li.innerHTML = `
             <i class="fas fa-user"></i> ${character.name}
-            <button class="edit-btn" data-character="${character.id}">
-                <i class="fas fa-edit"></i>
-            </button>
+            <div class="character-actions">
+                <button class="edit-btn" data-character="${character.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-btn" data-character="${character.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
         `;
         
         menu.appendChild(li);
@@ -254,9 +259,14 @@ function updateSettingsMenu() {
         
         li.innerHTML = `
             <i class="${setting.icon || 'fas fa-cog'}"></i> ${setting.title}
-            <button class="edit-settings-btn" data-setting="${setting.id}">
-                <i class="fas fa-edit"></i>
-            </button>
+            <div class="settings-actions">
+                <button class="edit-settings-btn" data-setting="${setting.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-settings-btn" data-setting="${setting.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
         `;
         
         settingsMenu.appendChild(li);
@@ -711,6 +721,15 @@ document.addEventListener('DOMContentLoaded', function() {
             openCharacterModal(characterId);
         }
         
+        // 삭제 버튼 클릭
+        if (e.target.closest('.delete-btn')) {
+            const deleteBtn = e.target.closest('.delete-btn');
+            const characterId = deleteBtn.dataset.character;
+            if (confirm('정말로 이 캐릭터를 삭제하시겠습니까?')) {
+                deleteCharacter(characterId);
+            }
+        }
+        
         // 캐릭터 추가 버튼 클릭
         if (e.target.closest('#add-character-btn')) {
             openCharacterModal();
@@ -738,6 +757,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const editBtn = e.target.closest('.edit-settings-btn');
             const settingId = editBtn.dataset.setting;
             openSettingsEditModal(settingId);
+        }
+        
+        // 설정 삭제 버튼 클릭
+        if (e.target.closest('.delete-settings-btn')) {
+            const deleteBtn = e.target.closest('.delete-settings-btn');
+            const settingId = deleteBtn.dataset.setting;
+            if (confirm('정말로 이 설정을 삭제하시겠습니까?')) {
+                deleteSetting(settingId);
+            }
         }
         
         // 설정 추가 버튼 클릭
