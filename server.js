@@ -32,94 +32,181 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// 데이터베이스 초기화
-const db = new sqlite3.Database('worldbuilding.db');
+// 데이터베이스 마이그레이션 함수
+function runMigrations(db) {
+    return new Promise((resolve, reject) => {
+        // 마이그레이션 테이블 생성
+        db.run(`CREATE TABLE IF NOT EXISTS migrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version TEXT NOT NULL,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`, (err) => {
+            if (err) {
+                reject(err);
+                return;
+            }
 
-db.serialize(() => {
-    // 사용자 테이블
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // 캐릭터 테이블
-    db.run(`CREATE TABLE IF NOT EXISTS characters (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        age INTEGER,
-        gender TEXT,
-        occupation TEXT,
-        abilities TEXT,
-        background TEXT,
-        relationships TEXT,
-        image_path TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // 설정 테이블
-    db.run(`CREATE TABLE IF NOT EXISTS settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        details TEXT,
-        icon TEXT DEFAULT 'fas fa-cog',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // 기본 설정 데이터 삽입 (한 번만 실행)
-    db.get('SELECT COUNT(*) as count FROM settings', (err, result) => {
-        if (err) {
-            console.error('설정 개수 확인 실패:', err);
-            return;
-        }
-        
-        if (result.count === 0) {
-            const defaultSettings = [
-                { 
-                    title: '마법 체계', 
-                    description: '현실과 마법이 공존하는 세계의 마법 체계',
-                    details: ['기본 마법: 현실의 법칙에서 벗어나는 기본 마법', '고급 마법: 마법사들이 사용하는 고급 마법', '생성 마법: 현실의 생성물로 만드는 마법', '기술 마법: 기술과 마법의 융합'],
-                    icon: 'fas fa-magic'
+            // 마이그레이션 실행
+            const migrations = [
+                {
+                    version: '1.0.0',
+                    sql: `CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        password TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )`
                 },
-                { 
-                    title: '조직 체계', 
-                    description: '세계를 관리하는 다양한 조직들의 체계',
-                    details: ['마법 조직: 마법사들을 관리하는 조직', '생성 관리: 생성물들을 관리하는 조직', '기본 관리: 기본 마법 사용자들의 관리', '마법 기술: 마법과 기술을 결합하는 조직'],
-                    icon: 'fas fa-users-cog'
+                {
+                    version: '1.0.1',
+                    sql: `CREATE TABLE IF NOT EXISTS characters (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        details TEXT,
+                        image_url TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )`
                 },
-                { 
-                    title: '현실 구조', 
-                    description: '현실과 마법이 공존하는 세계의 구조',
-                    details: ['현실 마법: 현대인들이 사용하는 마법', '마법 구조: 마법사들이 활동하는 구조', '생성 역사: 생성물들의 역사', '마법 조직 관리: 마법 조직들의 관리 체계'],
-                    icon: 'fas fa-city'
-                },
-                { 
-                    title: '위험 요소', 
-                    description: '세계를 위협하는 다양한 위험 요소들',
-                    details: ['마법의 이탈: 마법이 통제를 벗어나는 현상', '생성의 오용: 생성 마법의 오용', '기본 위험: 기본 마법의 위험성', '세계 멸망: 전체 세계를 위협하는 위험'],
-                    icon: 'fas fa-skull'
-                },
-                { 
-                    title: '기술', 
-                    description: '현대 기술과 마법이 결합된 기술 체계',
-                    details: ['주요 기술: 현실에서 사용되는 주요 기술', '현대 기술: 현대적인 기술 체계', '고급 기술: 고급 기술의 활용', '마법 기술: 마법과 기술의 결합'],
-                    icon: 'fas fa-microchip'
+                {
+                    version: '1.0.2',
+                    sql: `CREATE TABLE IF NOT EXISTS settings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        details TEXT,
+                        icon TEXT DEFAULT 'fas fa-cog',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )`
                 }
             ];
 
-            const insertSetting = db.prepare('INSERT INTO settings (title, description, details, icon) VALUES (?, ?, ?, ?)');
-            defaultSettings.forEach(setting => {
-                insertSetting.run(setting.title, setting.description, JSON.stringify(setting.details), setting.icon);
+            let completed = 0;
+            migrations.forEach(migration => {
+                db.get('SELECT version FROM migrations WHERE version = ?', [migration.version], (err, row) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    if (!row) {
+                        // 마이그레이션 실행
+                        db.run(migration.sql, (err) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+
+                            // 마이그레이션 기록
+                            db.run('INSERT INTO migrations (version) VALUES (?)', [migration.version], (err) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                console.log(`✅ 마이그레이션 ${migration.version} 완료`);
+                                completed++;
+                                if (completed === migrations.length) {
+                                    resolve();
+                                }
+                            });
+                        });
+                    } else {
+                        console.log(`⏭️ 마이그레이션 ${migration.version} 이미 적용됨`);
+                        completed++;
+                        if (completed === migrations.length) {
+                            resolve();
+                        }
+                    }
+                });
             });
-            insertSetting.finalize();
-            console.log('기본 설정 데이터가 삽입되었습니다.');
-        }
+        });
     });
-});
+}
+
+// 데이터베이스 초기화 함수
+function initDatabase() {
+    return new Promise((resolve, reject) => {
+        const dbPath = path.join(__dirname, 'worldbuilding.db');
+        console.log(`📁 데이터베이스 경로: ${dbPath}`);
+
+        db = new sqlite3.Database(dbPath, (err) => {
+            if (err) {
+                console.error('❌ 데이터베이스 연결 실패:', err);
+                reject(err);
+                return;
+            }
+            console.log('✅ SQLite 데이터베이스에 연결되었습니다.');
+
+            // 마이그레이션 실행
+            runMigrations(db).then(() => {
+                console.log('✅ 데이터베이스 마이그레이션 완료');
+                resolve();
+            }).catch(reject);
+        });
+    });
+}
+
+// 기본 데이터 삽입 함수 (개선됨)
+function insertDefaultData() {
+    return new Promise((resolve, reject) => {
+        // 기본 설정 데이터 삽입 (한 번만 실행)
+        db.get('SELECT COUNT(*) as count FROM settings', (err, result) => {
+            if (err) {
+                console.error('❌ 설정 개수 확인 실패:', err);
+                reject(err);
+                return;
+            }
+
+            if (result.count === 0) {
+                console.log('📝 기본 설정 데이터 삽입 중...');
+                const defaultSettings = [
+                    {
+                        title: '마법 체계',
+                        description: '현실과 마법이 공존하는 세계의 마법 체계',
+                        details: ['기본 마법: 현실의 법칙에서 벗어나는 기본 마법', '고급 마법: 마법사들이 사용하는 고급 마법', '생성 마법: 현실의 생성물로 만드는 마법', '기술 마법: 기술과 마법의 융합'],
+                        icon: 'fas fa-magic'
+                    },
+                    {
+                        title: '조직 체계',
+                        description: '세계를 관리하는 다양한 조직들의 체계',
+                        details: ['마법 조직: 마법사들을 관리하는 조직', '생성 관리: 생성물들을 관리하는 조직', '기본 관리: 기본 마법 사용자들의 관리', '마법 기술: 마법과 기술을 결합하는 조직'],
+                        icon: 'fas fa-users-cog'
+                    },
+                    {
+                        title: '현실 구조',
+                        description: '현실과 마법이 공존하는 세계의 구조',
+                        details: ['현실 마법: 현대인들이 사용하는 마법', '마법 구조: 마법사들이 활동하는 구조', '생성 역사: 생성물들의 역사', '마법 조직 관리: 마법 조직들의 관리 체계'],
+                        icon: 'fas fa-city'
+                    },
+                    {
+                        title: '위험 요소',
+                        description: '세계를 위협하는 다양한 위험 요소들',
+                        details: ['마법의 이탈: 마법이 통제를 벗어나는 현상', '생성의 오용: 생성 마법의 오용', '기본 위험: 기본 마법의 위험성', '세계 멸망: 전체 세계를 위협하는 위험'],
+                        icon: 'fas fa-skull'
+                    },
+                    {
+                        title: '기술',
+                        description: '현대 기술과 마법이 결합된 기술 체계',
+                        details: ['주요 기술: 현실에서 사용되는 주요 기술', '현대 기술: 현대적인 기술 체계', '고급 기술: 고급 기술의 활용', '마법 기술: 마법과 기술의 결합'],
+                        icon: 'fas fa-microchip'
+                    }
+                ];
+
+                const insertSetting = db.prepare('INSERT INTO settings (title, description, details, icon) VALUES (?, ?, ?, ?)');
+                defaultSettings.forEach(setting => {
+                    insertSetting.run(setting.title, setting.description, JSON.stringify(setting.details), setting.icon);
+                });
+                insertSetting.finalize();
+                console.log('✅ 기본 설정 데이터가 삽입되었습니다.');
+            } else {
+                console.log('⏭️ 기본 설정 데이터가 이미 존재합니다.');
+            }
+            resolve();
+        });
+    });
+}
 
 // JWT 토큰 검증 미들웨어
 function authenticateToken(req, res, next) {
