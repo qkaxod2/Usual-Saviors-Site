@@ -63,9 +63,9 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        category TEXT NOT NULL,
         description TEXT,
         details TEXT,
+        icon TEXT DEFAULT 'fas fa-cog',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
