@@ -70,19 +70,55 @@ db.serialize(() => {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // 기본 설정 데이터 삽입
-    const defaultSettings = [
-        { title: '각성', category: '마법', description: '인간이 각성하여 얻는 초자연적 능력' },
-        { title: '이형', category: '마법', description: '각성자들이 사용하는 변신 능력' },
-        { title: '신앙', category: '조직', description: '각성자들을 관리하는 비밀 조직' },
-        { title: '사냥꾼', category: '조직', description: '이형들을 사냥하는 특수 부대' }
-    ];
+    // 기본 설정 데이터 삽입 (한 번만 실행)
+    db.get('SELECT COUNT(*) as count FROM settings', (err, result) => {
+        if (err) {
+            console.error('설정 개수 확인 실패:', err);
+            return;
+        }
+        
+        if (result.count === 0) {
+            const defaultSettings = [
+                { 
+                    title: '마법 체계', 
+                    description: '현실과 마법이 공존하는 세계의 마법 체계',
+                    details: ['기본 마법: 현실의 법칙에서 벗어나는 기본 마법', '고급 마법: 마법사들이 사용하는 고급 마법', '생성 마법: 현실의 생성물로 만드는 마법', '기술 마법: 기술과 마법의 융합'],
+                    icon: 'fas fa-magic'
+                },
+                { 
+                    title: '조직 체계', 
+                    description: '세계를 관리하는 다양한 조직들의 체계',
+                    details: ['마법 조직: 마법사들을 관리하는 조직', '생성 관리: 생성물들을 관리하는 조직', '기본 관리: 기본 마법 사용자들의 관리', '마법 기술: 마법과 기술을 결합하는 조직'],
+                    icon: 'fas fa-users-cog'
+                },
+                { 
+                    title: '현실 구조', 
+                    description: '현실과 마법이 공존하는 세계의 구조',
+                    details: ['현실 마법: 현대인들이 사용하는 마법', '마법 구조: 마법사들이 활동하는 구조', '생성 역사: 생성물들의 역사', '마법 조직 관리: 마법 조직들의 관리 체계'],
+                    icon: 'fas fa-city'
+                },
+                { 
+                    title: '위험 요소', 
+                    description: '세계를 위협하는 다양한 위험 요소들',
+                    details: ['마법의 이탈: 마법이 통제를 벗어나는 현상', '생성의 오용: 생성 마법의 오용', '기본 위험: 기본 마법의 위험성', '세계 멸망: 전체 세계를 위협하는 위험'],
+                    icon: 'fas fa-skull'
+                },
+                { 
+                    title: '기술', 
+                    description: '현대 기술과 마법이 결합된 기술 체계',
+                    details: ['주요 기술: 현실에서 사용되는 주요 기술', '현대 기술: 현대적인 기술 체계', '고급 기술: 고급 기술의 활용', '마법 기술: 마법과 기술의 결합'],
+                    icon: 'fas fa-microchip'
+                }
+            ];
 
-    const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (title, category, description) VALUES (?, ?, ?)');
-    defaultSettings.forEach(setting => {
-        insertSetting.run(setting.title, setting.category, setting.description);
+            const insertSetting = db.prepare('INSERT INTO settings (title, description, details, icon) VALUES (?, ?, ?, ?)');
+            defaultSettings.forEach(setting => {
+                insertSetting.run(setting.title, setting.description, JSON.stringify(setting.details), setting.icon);
+            });
+            insertSetting.finalize();
+            console.log('기본 설정 데이터가 삽입되었습니다.');
+        }
     });
-    insertSetting.finalize();
 });
 
 // JWT 토큰 검증 미들웨어
