@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  usual-saviors-app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - ./server/uploads:/app/uploads
+    restart: unless-stopped 
