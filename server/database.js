@@ -28,6 +28,7 @@ function initDatabase() {
                 title TEXT,
                 age TEXT,
                 occupation TEXT,
+                team TEXT,
                 personality TEXT,
                 background TEXT,
                 abilities TEXT,
@@ -230,7 +231,43 @@ function runMigrations() {
                     });
                 } else {
                     console.log('Migration v1 already applied');
-                    resolve();
+                    
+                    // 마이그레이션 2: 캐릭터 테이블에 team 필드 추가
+                    db.get("SELECT COUNT(*) as count FROM migrations WHERE version = 'v2_add_team_field'", (err, row) => {
+                        if (err) {
+                            console.error('Error checking migration v2:', err);
+                            reject(err);
+                            return;
+                        }
+                        
+                        if (!row || row.count === 0) {
+                            console.log('Running migration v2: Add team field to characters...');
+                            
+                            // team 필드가 있는지 확인하고 없으면 추가
+                            db.run(`ALTER TABLE characters ADD COLUMN team TEXT`, (err) => {
+                                if (err && !err.message.includes('duplicate column name')) {
+                                    console.error('Error running migration v2:', err);
+                                    reject(err);
+                                    return;
+                                }
+                                
+                                // 마이그레이션 완료 기록
+                                db.run("INSERT INTO migrations (version) VALUES (?)", ['v2_add_team_field'], (err) => {
+                                    if (err) {
+                                        console.error('Error recording migration v2:', err);
+                                        reject(err);
+                                        return;
+                                    }
+                                    
+                                    console.log('Migration v2 completed successfully');
+                                    resolve();
+                                });
+                            });
+                        } else {
+                            console.log('Migration v2 already applied');
+                            resolve();
+                        }
+                    });
                 }
             });
         });

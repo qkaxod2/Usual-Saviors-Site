@@ -337,12 +337,9 @@ function renderCharacterContent(character, characterInfo) {
                     </div>
                     <div class="contact-item">
                         <i class="fas fa-users"></i>
-                        <strong>Team:</strong> Usual Saviors
+                        <strong>Team:</strong> ${character.team || 'Usual Saviors'}
                     </div>
-                    <div class="contact-item">
-                        <i class="fas fa-calendar"></i>
-                        <strong>Joined:</strong> ${new Date(character.created_at).toLocaleDateString()}
-                    </div>
+
                 </div>
                 
                 <div class="summary">
@@ -456,6 +453,11 @@ function createCharacterModal() {
                 </div>
                 
                 <div class="form-group">
+                    <label for="char-team">팀</label>
+                    <input type="text" id="char-team" name="team" placeholder="예: Usual Saviors">
+                </div>
+                
+                <div class="form-group">
                     <label for="char-personality">성격</label>
                     <textarea id="char-personality" name="personality" required></textarea>
                 </div>
@@ -563,6 +565,7 @@ function openCharacterModal(characterId = null) {
             form.title.value = character.title || '';
             form.age.value = character.age || '';
             form.occupation.value = character.occupation || '';
+            form.team.value = character.team || '';
             form.personality.value = character.personality || '';
             form.background.value = character.background || '';
             form.abilities.value = (character.abilities || []).join('\n');
@@ -786,6 +789,7 @@ document.addEventListener('DOMContentLoaded', function() {
             title: formData.get('title'),
             age: formData.get('age'),
             occupation: formData.get('occupation'),
+            team: formData.get('team'),
             personality: formData.get('personality'),
             background: formData.get('background'),
             abilities: formData.get('abilities'),
