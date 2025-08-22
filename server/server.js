@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDatabase, insertDefaultData } = require('./database');
+const { initDatabase, insertDefaultData, runMigrations } = require('./database');
 
 // 라우트 가져오기
 const charactersRouter = require('./routes/characters');
@@ -66,7 +66,13 @@ app.listen(PORT, async () => {
     try {
         // 데이터베이스 초기화
         await initDatabase();
+        
+        // 마이그레이션 실행 (중복 데이터 정리)
+        await runMigrations();
+        
+        // 기본 데이터 삽입
         await insertDefaultData();
+        
         console.log('✅ Server startup completed successfully');
     } catch (error) {
         console.error('❌ Error during server startup:', error);
